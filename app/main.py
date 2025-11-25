@@ -11,6 +11,7 @@ from .agents.tools import (
     generate_ideal_roles,
     generate_actionable_context,
 )
+from .graph_tracer import call_graph, trace_node  # graph utilities
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ def execute_pipeline(settings: Settings, emit_console: bool = True) -> dict:
       - step1_general_context
       - step2_ideal_roles_prompt
       - step3_actionable_context_brief
+      - mermaid_flowchart (str)
     """
     logger.info(
         "Executing pipeline: axis=%s | unit=%s | ideal_roles=%s",
@@ -72,109 +74,129 @@ def execute_pipeline(settings: Settings, emit_console: bool = True) -> dict:
         settings.IDEAL_ROLES,
     )
 
+    # Reset call graph for this run
+    call_graph.clear()
+
     # Create run directory
     run_dir = _create_run_directory(settings)
 
-    if emit_console:
-        print("\n🌐 BIG – Agentic Pipeline Run")
-        print("====================================")
-        print("We will now perform three internal steps:")
-        print("  1️⃣ Generate a general analytical context for your AXIS × UNIT")
-        print("  2️⃣ From that context, generate the ideal roles prompt opening")
-        print(
-            "  3️⃣ Using both, generate a rigorous, actionable analytical context brief\n"
+    # Trace the overall pipeline
+    with trace_node("pipeline"):
+        if emit_console:
+            print("\n🌐 BIG – Agentic Pipeline Run")
+            print("====================================")
+            print("We will now perform three internal steps:")
+            print("  1️⃣ Generate a general analytical context for your AXIS × UNIT")
+            print("  2️⃣ From that context, generate the ideal roles prompt opening")
+            print(
+                "  3️⃣ Using both, generate a rigorous, actionable analytical context brief\n"
+            )
+
+            print(f"   AXIS_OF_EXPLORATION: {settings.AXIS_OF_EXPLORATION}")
+            print(f"   UNIT_OF_ANALYSIS   : {settings.UNIT_OF_ANALYSIS}")
+            print(f"   COUNTRY            : {settings.COUNTRY}")
+            print(f"   IDEAL_ROLES        : {settings.IDEAL_ROLES}")
+            print(
+                f"   EXTERNAL_RESEARCH  : "
+                f"{'yes' if settings.EXTERNAL_RESEARCH else 'no'}"
+            )
+            print(f"   CONSTRAINTS        : {settings.CONSTRAINTS or 'none specified'}")
+            print(f"   COMPLEX_UNIT       : {'yes' if settings.COMPLEX_UNIT else 'no'}\n")
+
+            print(f"📁 This run will be saved to: {run_dir}\n")
+            print("🚀 Launching sub-agents...\n")
+
+        # ---------------------------
+        # STEP 1: General context
+        # ---------------------------
+        logger.info(
+            "Step 1/3: generating general context via `generate_axis_unit_context`"
         )
 
-        print(f"   AXIS_OF_EXPLORATION: {settings.AXIS_OF_EXPLORATION}")
-        print(f"   UNIT_OF_ANALYSIS   : {settings.UNIT_OF_ANALYSIS}")
-        print(f"   COUNTRY            : {settings.COUNTRY}")
-        print(f"   IDEAL_ROLES        : {settings.IDEAL_ROLES}")
-        print(
-            f"   EXTERNAL_RESEARCH  : "
-            f"{'yes' if settings.EXTERNAL_RESEARCH else 'no'}"
-        )
-        print(f"   CONSTRAINTS        : {settings.CONSTRAINTS or 'none specified'}")
-        print(f"   COMPLEX_UNIT       : {'yes' if settings.COMPLEX_UNIT else 'no'}\n")
+        with trace_node("generate_axis_unit_context"):
+            context_block = generate_axis_unit_context.invoke(
+                {
+                    "axis": settings.AXIS_OF_EXPLORATION,
+                    "unit": settings.UNIT_OF_ANALYSIS,
+                }
+            )
 
-        print(f"📁 This run will be saved to: {run_dir}\n")
-        print("🚀 Launching sub-agents...\n")
+        _write_step_output(run_dir, "step1_general_context.md", context_block)
 
-    # ---------------------------
-    # STEP 1: General context
-    # ---------------------------
-    logger.info("Step 1/3: generating general context via `generate_axis_unit_context`")
+        if emit_console:
+            print("✅ Step 1/3 completed.\n")
+            print("====================================")
+            print("STEP 1/3 – General context for AXIS × UNIT")
+            print("====================================\n")
+            print(context_block)
+            print("\n------------------------------------\n")
 
-    context_block = generate_axis_unit_context.invoke(
-        {
-            "axis": settings.AXIS_OF_EXPLORATION,
-            "unit": settings.UNIT_OF_ANALYSIS,
-        }
-    )
-    _write_step_output(run_dir, "step1_general_context.md", context_block)
+        # ---------------------------
+        # STEP 2: Ideal roles prompt
+        # ---------------------------
+        logger.info("Step 2/3: generating ideal roles via `generate_ideal_roles`")
 
-    if emit_console:
-        print("✅ Step 1/3 completed.\n")
-        print("====================================")
-        print("STEP 1/3 – General context for AXIS × UNIT")
-        print("====================================\n")
-        print(context_block)
-        print("\n------------------------------------\n")
+        with trace_node("generate_ideal_roles"):
+            roles_block = generate_ideal_roles.invoke(
+                {
+                    "context": context_block,
+                    "n_roles": settings.IDEAL_ROLES,
+                }
+            )
 
-    # ---------------------------
-    # STEP 2: Ideal roles prompt
-    # ---------------------------
-    logger.info("Step 2/3: generating ideal roles via `generate_ideal_roles`")
+        _write_step_output(run_dir, "step2_ideal_roles_prompt.md", roles_block)
 
-    roles_block = generate_ideal_roles.invoke(
-        {
-            "context": context_block,
-            "n_roles": settings.IDEAL_ROLES,
-        }
-    )
-    _write_step_output(run_dir, "step2_ideal_roles_prompt.md", roles_block)
+        if emit_console:
+            print("✅ Step 2/3 completed.\n")
+            print("====================================")
+            print("STEP 2/3 – Ideal roles prompt opening")
+            print("====================================\n")
+            print(roles_block)
+            print("\n------------------------------------\n")
 
-    if emit_console:
-        print("✅ Step 2/3 completed.\n")
-        print("====================================")
-        print("STEP 2/3 – Ideal roles prompt opening")
-        print("====================================\n")
-        print(roles_block)
-        print("\n------------------------------------\n")
-
-    # ---------------------------
-    # STEP 3: Actionable context brief
-    # ---------------------------
-    logger.info(
-        "Step 3/3: generating actionable analytical context via "
-        "`generate_actionable_context`"
-    )
-
-    actionable_block = generate_actionable_context.invoke(
-        {
-            "roles_prompt": roles_block,
-            "general_context": context_block,
-        }
-    )
-    _write_step_output(run_dir, "step3_actionable_context_brief.md", actionable_block)
-
-    if emit_console:
-        print("✅ Step 3/3 completed.\n")
-        print("====================================")
-        print("STEP 3/3 – Actionable analytical context brief (final output)")
-        print("====================================\n")
-        print(actionable_block)
-
-        print(
-            f"\n📝 All artefacts for this run are saved under:\n   {run_dir}\n"
-            "   - step1_general_context.md\n"
-            "   - step2_ideal_roles_prompt.md\n"
-            "   - step3_actionable_context_brief.md\n"
+        # ---------------------------
+        # STEP 3: Actionable context brief
+        # ---------------------------
+        logger.info(
+            "Step 3/3: generating actionable analytical context via "
+            "`generate_actionable_context`"
         )
 
-        print(
-            "🎯 End of run – you can now reuse the final brief above as the "
-            "context input for downstream ideation or opportunity generation."
+        with trace_node("generate_actionable_context"):
+            actionable_block = generate_actionable_context.invoke(
+                {
+                    "roles_prompt": roles_block,
+                    "general_context": context_block,
+                }
+            )
+
+        _write_step_output(
+            run_dir, "step3_actionable_context_brief.md", actionable_block
         )
+
+        if emit_console:
+            print("✅ Step 3/3 completed.\n")
+            print("====================================")
+            print("STEP 3/3 – Actionable analytical context brief (final output)")
+            print("====================================\n")
+            print(actionable_block)
+
+            print(
+                f"\n📝 All artefacts for this run are saved under:\n   {run_dir}\n"
+                "   - step1_general_context.md\n"
+                "   - step2_ideal_roles_prompt.md\n"
+                "   - step3_actionable_context_brief.md\n"
+            )
+
+            print(
+                "🎯 End of run – you can now reuse the final brief above as the "
+                "context input for downstream ideation or opportunity generation."
+            )
+
+    # After the pipeline finishes, build the Mermaid graph
+    mermaid_flowchart = call_graph.as_mermaid_flowchart(direction="LR")
+    mermaid_path = _write_step_output(run_dir, "call_graph.mmd", mermaid_flowchart)
+    logger.info("Call graph Mermaid diagram written to %s", mermaid_path)
 
     logger.info("Run completed successfully. Artefacts stored at %s", run_dir)
 
@@ -183,6 +205,7 @@ def execute_pipeline(settings: Settings, emit_console: bool = True) -> dict:
         "step1_general_context": context_block,
         "step2_ideal_roles_prompt": roles_block,
         "step3_actionable_context_brief": actionable_block,
+        "mermaid_flowchart": mermaid_flowchart,
     }
 
 

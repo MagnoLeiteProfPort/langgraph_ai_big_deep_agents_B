@@ -5,7 +5,13 @@ from .config import load_settings
 from .logging_config import setup_logging
 from .config.settings import Settings
 from .main import execute_pipeline
+import warnings
 
+warnings.filterwarnings(
+    "ignore",
+    message="LangSmith now uses UUID v7 for run and trace identifiers",
+    category=UserWarning,
+)
 # Load base settings and configure logging once at startup
 _base_settings: Settings = load_settings()
 setup_logging(_base_settings)
