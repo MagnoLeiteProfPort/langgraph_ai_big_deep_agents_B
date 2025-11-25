@@ -434,6 +434,9 @@ This is intentionally simple but structured enough to extend with:
 - external search tools
 - persistent memory, DB, etc.
 
+Langsmith observability
+![alt text](image-1.png)
+
 ### BACKEND A
 
 cd "C:\Users\MagnodaSilvaLeite(t2\Documents\Magno_Personal\AI\Portfolio\langgraph_ai_big_deep_agents_A/backend"
