@@ -453,19 +453,16 @@ uvicorn app.api:app --reload
 
 ![alt text](image.png)
 
-![alt text](image-1.png)
+## MERMAID
 
-![alt text](image-2.png)
-
-MERMAID
 config:
-theme: forest
 look: classic
+theme: forest
 
 ---
 
 flowchart TB
 User["User"] --> Frontend["Frontend"]
-Frontend --> AgentB["AgentB"]
-AgentB --> AgentA["AgentA"]
-AgentA --> generate_actionable_context["generate_actionable_context"] & generate_axis_unit_context["generate_axis_unit_context"] & generate_ideal_roles["generate_ideal_roles"]
+Frontend --> AgentA["AgentA"]
+AgentA --> AgentB["AgentB"]
+AgentB --> generate_actionable_context["generate_actionable_context"] & generate_axis_unit_context["generate_axis_unit_context"] & generate_ideal_roles["generate_ideal_roles"]
